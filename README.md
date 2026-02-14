@@ -1,5 +1,9 @@
 # Weirdoes Moderator
 
+## What is Weirdoes Moderator?
+
+Weirdoes Moderator is a moderation bot originally built for the Weirdoes server, it has a variety of funny and useful features to help moderate a Discord server.
+
 ## Commands
 
 ### Slash Commands

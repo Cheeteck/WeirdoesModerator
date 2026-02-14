@@ -171,6 +171,16 @@ def get_channel(ctx_or_int):
     return ctx_or_int.channel
 
 
+async def get_user_id(ctx, user_input: str) -> int:
+    """Get user ID by mention or ID string"""
+    if ctx.message.mentions:
+        return ctx.message.mentions[0].id
+    try:
+        return int(user_input)
+    except:
+        return None
+
+
 # ==================== JARVIS ROUTER ====================
 
 async def handle_jarvis_command(message: discord.Message, query: str):
@@ -195,13 +205,17 @@ Available actions:
 1. warn (args: user_id, reason)
 2. mute (args: user_id, duration, reason)
 3. unmute (args: user_id)
-4. hwarn (args: user_id) - views history
-5. allwarn (no args)
-6. lwarn (no args)
-7. clearwarns (args: user_id) - clear all warnings for a specific user
-8. resetwarns (no args) - reset ALL warnings for everyone
-9. shutdown (no args)
-10. help (no args)
+4. kick (args: user_id, reason)
+5. ban (args: user_id, reason)
+6. unban (args: user_id)
+7. clear (args: amount)
+8. hwarn (args: user_id) - views history
+9. allwarn (no args)
+10. lwarn (no args)
+11. clearwarns (args: user_id) - clear all warnings for a specific user
+12. resetwarns (no args) - reset ALL warnings for everyone
+13. shutdown (no args)
+14. help (no args)
 
 Respond ONLY with a JSON object:
 {{"action": "action_name", "args": {{"arg1": "val1", ...}}}}
@@ -244,6 +258,24 @@ Current Time: {datetime.now(timezone.utc).isoformat()}
         elif action == "unmute":
             target = await message.guild.fetch_member(int(args["user_id"]))
             await handle_unmute(message, target)
+
+        elif action == "kick":
+            target = await message.guild.fetch_member(int(args["user_id"]))
+            reason = args.get("reason", "No reason provided")
+            await handle_kick(message, target, reason)
+
+        elif action == "ban":
+            target = await message.guild.fetch_member(int(args["user_id"]))
+            reason = args.get("reason", "No reason provided")
+            await handle_ban(message, target, reason)
+
+        elif action == "unban":
+            user_id = int(args["user_id"])
+            await handle_unban(message, user_id)
+
+        elif action == "clear":
+            amount = int(args.get("amount", 10))
+            await handle_clear(message, amount)
             
         elif action == "hwarn":
             target = await message.guild.fetch_member(int(args["user_id"]))
@@ -389,19 +421,21 @@ async def perform_help(ctx_or_int):
         color=0x7289DA
     )
     embed.add_field(name="🔹 !warn <@user> <reason>", value="Warns a user", inline=False)
-    embed.add_field(name="🔹 !hwarn <@user>", value="Shows a user's history", inline=False)
-    embed.add_field(name="🔹 !delwarn <@user>", value="Remove specific warnings", inline=False)
-    embed.add_field(name="🔹 !clearwarns <@user>", value="Clear all warnings for a user", inline=False)
+    embed.add_field(name="🔹 !kick <@user> <reason>", value="Kicks a user", inline=False)
+    embed.add_field(name="🔹 !ban <@user> <reason>", value="Bans a user", inline=False)
+    embed.add_field(name="🔹 !unban <user_id>", value="Unbans a user", inline=False)
     embed.add_field(name="🔹 !mute <user>, <duration>, <reason>", value="Mutes a user (e.g. 10m, 2h)", inline=False)
     embed.add_field(name="🔹 !unmute <user>", value="Unmutes a user", inline=False)
-    embed.add_field(name="🔹 !perm <@role>", value="Add/remove moderator role", inline=False)
-    embed.add_field(name="🔹 !lwarn", value="Shows warning leaderboard", inline=False)
+    embed.add_field(name="🔹 !timeout <user>, <duration>, <reason>", value="Alias for mute", inline=False)
+    embed.add_field(name="🔹 !clear <amount>", value="Delete messages", inline=False)
+    embed.add_field(name="🔹 !hwarn <@user>", value="Shows history", inline=False)
+    embed.add_field(name="🔹 !lwarn", value="Shows leaderboard", inline=False)
     embed.add_field(name="🔹 !allwarn", value="Shows all warnings", inline=False)
-    embed.add_field(name="🔹 !resetwarns", value="Reset all warnings", inline=False)
+    embed.add_field(name="🔹 !modrole <@role>", value="Add/remove moderator role", inline=False)
+    embed.add_field(name="🔹 !modroles", value="List moderator roles", inline=False)
+    embed.add_field(name="🔹 !reset", value="Reset bot data", inline=False)
     embed.add_field(name="🔹 !shutdown", value="Shutdown the bot", inline=False)
-    embed.add_field(name="🔹 Jarvis warn @user for reason", value="Natural language warn", inline=False)
-    embed.add_field(name="🔹 Jarvis clear all of @user's warnings", value="Natural language clearwarns", inline=False)
-    embed.add_field(name="🔹 Jarvis turn off", value="Shutdown the bot", inline=False)
+    embed.add_field(name="🔹 Jarvis warn @user for reason", value="Natural language commands", inline=False)
     embed.add_field(name="✨ Note", value="All commands are also available as slash commands (e.g. `/warn`)", inline=False)
 
     await send_response(ctx_or_int, embed=embed)
@@ -687,6 +721,128 @@ async def handle_unmute(ctx_or_int, member: discord.Member):
         await send_response(ctx_or_int, "❌ Failed to unmute the user.")
 
 
+async def handle_kick(ctx_or_int, member: discord.Member, reason: str):
+    """Shared kick logic"""
+    try:
+        await member.kick(reason=reason)
+        await send_response(ctx_or_int, f"👢 **{member.name}** has been kicked. Reason: {reason}")
+    except Exception as e:
+        await send_response(ctx_or_int, f"❌ Failed to kick: {e}")
+
+
+async def handle_ban(ctx_or_int, member: discord.Member, reason: str):
+    """Shared ban logic"""
+    try:
+        await member.ban(reason=reason)
+        await send_response(ctx_or_int, f"🔨 **{member.name}** has been banned. Reason: {reason}")
+    except Exception as e:
+        await send_response(ctx_or_int, f"❌ Failed to ban: {e}")
+
+
+async def handle_unban(ctx_or_int, user_id: int):
+    """Shared unban logic"""
+    try:
+        guild = get_channel(ctx_or_int).guild
+        user = await bot.fetch_user(user_id)
+        await guild.unban(user)
+        await send_response(ctx_or_int, f"✅ **{user.name}** has been unbanned.")
+    except Exception as e:
+        await send_response(ctx_or_int, f"❌ Failed to unban: {e}")
+
+
+async def handle_clear(ctx_or_int, amount: int):
+    """Shared clear logic"""
+    try:
+        channel = get_channel(ctx_or_int)
+        # If it's a context, it's a prefix command, so we should delete one more to include the command itself
+        purge_limit = amount + 1 if isinstance(ctx_or_int, commands.Context) else amount
+        deleted = await channel.purge(limit=purge_limit)
+        await send_response(ctx_or_int, f"🧹 Cleared **{len(deleted)}** messages.", ephemeral=True)
+    except Exception as e:
+        await send_response(ctx_or_int, f"❌ Failed to clear messages: {e}", ephemeral=True)
+
+
+# Kick command
+@bot.command(name="kick")
+async def kick_command(ctx, member: discord.Member = None, *, reason: str = "No reason provided"):
+    """Kick a user"""
+    if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+    if not member: return await ctx.reply("⚠️ Usage: `!kick @user <reason>`")
+    await handle_kick(ctx, member, reason)
+
+@bot.tree.command(name="kick", description="Kick a user")
+@app_commands.describe(member="The user to kick", reason="The reason for the kick")
+async def kick_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+    await handle_kick(interaction, member, reason)
+
+# Ban command
+@bot.command(name="ban")
+async def ban_command(ctx, member: discord.Member = None, *, reason: str = "No reason provided"):
+    """Ban a user"""
+    if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+    if not member: return await ctx.reply("⚠️ Usage: `!ban @user <reason>`")
+    await handle_ban(ctx, member, reason)
+
+@bot.tree.command(name="ban", description="Ban a user")
+@app_commands.describe(member="The user to ban", reason="The reason for the ban")
+async def ban_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+    await handle_ban(interaction, member, reason)
+
+# Unban command
+@bot.command(name="unban")
+async def unban_command(ctx, user_input: str = None):
+    """Unban a user"""
+    if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+    if not user_input: return await ctx.reply("⚠️ Usage: `!unban <user_id>`")
+    user_id = await get_user_id(ctx, user_input)
+    if not user_id: return await ctx.reply("❌ Invalid user ID.")
+    await handle_unban(ctx, user_id)
+
+@bot.tree.command(name="unban", description="Unban a user")
+@app_commands.describe(user_id="The ID of the user to unban")
+async def unban_slash(interaction: discord.Interaction, user_id: str):
+    if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+    try: await handle_unban(interaction, int(user_id))
+    except: await interaction.response.send_message("❌ Invalid user ID.", ephemeral=True)
+
+# Clear command
+@bot.command(name="clear")
+async def clear_command(ctx, amount: int = None):
+    """Clear messages"""
+    if not is_moderator(ctx.author): return
+    if amount is None: return await ctx.reply("⚠️ Usage: `!clear <amount>`")
+    await handle_clear(ctx, amount)
+
+@bot.tree.command(name="clear", description="Clear messages")
+@app_commands.describe(amount="Number of messages to clear")
+async def clear_slash(interaction: discord.Interaction, amount: int):
+    if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+    await handle_clear(interaction, amount)
+
+# Timeout aliases
+@bot.command(name="timeout")
+async def timeout_command(ctx, *, args: str = None):
+    """Alias for mute"""
+    await mute_command(ctx, args=args)
+
+@bot.tree.command(name="timeout", description="Timeout a user")
+@app_commands.describe(member="The user to timeout", duration="Duration (e.g. 10m, 2h)", reason="The reason for the timeout")
+async def timeout_slash(interaction: discord.Interaction, member: discord.Member, duration: str, reason: str):
+    await mute_slash(interaction, member, duration, reason)
+
+@bot.command(name="untimeout")
+async def untimeout_command(ctx, member: discord.Member = None):
+    """Alias for unmute"""
+    await unmute_command(ctx, member=member)
+
+@bot.tree.command(name="untimeout", description="Untimeout a user")
+@app_commands.describe(member="The user to untimeout")
+async def untimeout_slash(interaction: discord.Interaction, member: discord.Member):
+    await unmute_slash(interaction, member)
+
+
 @bot.command(name="delwarn")
 async def delete_warn_command(ctx, member: discord.Member = None):
     """Delete warnings"""
@@ -776,7 +932,7 @@ async def clearwarns_slash(interaction: discord.Interaction, member: discord.Mem
     await perform_clearwarns(interaction, member)
 
 
-@bot.command(name="perm")
+@bot.command(name="modrole")
 async def permissions_command(ctx, role: discord.Role = None):
     """Add or remove mod role"""
     if not ctx.author.guild_permissions.administrator:
@@ -787,12 +943,40 @@ async def permissions_command(ctx, role: discord.Role = None):
         return
     await handle_perm(ctx, role)
 
-@bot.tree.command(name="perm", description="Add or remove moderator permissions from a role")
+
+@bot.command(name="modroles")
+async def modroles_list_command(ctx):
+    """List moderator roles"""
+    if not is_moderator(ctx.author):
+        return
+    if not moderator_roles:
+        await ctx.reply("📜 No moderator roles configured.")
+        return
+    roles_text = "\n".join([f"• <@&{rid}>" for rid in moderator_roles])
+    await ctx.reply(f"🛡️ **Moderator Roles:**\n{roles_text}")
+
+
+@bot.tree.command(name="modrole", description="Set moderator role")
 @app_commands.describe(role="The role to toggle")
 @app_commands.default_permissions(administrator=True)
 async def perm_slash(interaction: discord.Interaction, role: discord.Role):
-    """Slash perm"""
+    """Slash modrole"""
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+        return
     await handle_perm(interaction, role)
+
+
+@bot.tree.command(name="modroles", description="List moderator roles")
+async def modroles_slash(interaction: discord.Interaction):
+    """Slash modroles"""
+    if not is_moderator(interaction.user):
+        return
+    if not moderator_roles:
+        await interaction.response.send_message("📜 No moderator roles configured.", ephemeral=True)
+        return
+    roles_text = "\n".join([f"• <@&{rid}>" for rid in moderator_roles])
+    await interaction.response.send_message(f"🛡️ **Moderator Roles:**\n{roles_text}")
 
 async def handle_perm(ctx_or_int, role: discord.Role):
     """Shared perm logic"""
@@ -804,6 +988,44 @@ async def handle_perm(ctx_or_int, role: discord.Role):
         moderator_roles.append(role.id)
         save_moderator_roles()
         await send_response(ctx_or_int, f"✅ Added moderator permissions to role {role.name}")
+
+@bot.command(name="reset")
+async def reset_bot_command(ctx):
+    """Reset bot data (warnings and mutes)"""
+    if not is_moderator(ctx.author):
+        return
+    await perform_reset_all(ctx)
+
+
+@bot.tree.command(name="reset", description="Reset bot data (warnings and mutes)")
+async def reset_slash(interaction: discord.Interaction):
+    """Slash reset"""
+    if not is_moderator(interaction.user):
+        await interaction.response.send_message("❌ You don't have permission.", ephemeral=True)
+        return
+    await perform_reset_all(interaction)
+
+
+async def perform_reset_all(ctx_or_int):
+    """Shared reset all logic"""
+    view = discord.ui.View()
+
+    async def yes_callback(interaction):
+        save_data(WARNINGS_FILE, [])
+        save_data(MUTES_FILE, [])
+        await interaction.response.edit_message(content="✅ All bot data (warnings and mutes) has been reset.", view=None)
+
+    async def cancel_callback(interaction):
+        await interaction.response.edit_message(content="❌ Reset cancelled.", view=None)
+
+    yes_btn = discord.ui.Button(label="Reset Everything", style=discord.ButtonStyle.danger)
+    yes_btn.callback = yes_callback
+    no_btn = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
+    no_btn.callback = cancel_callback
+    view.add_item(yes_btn)
+    view.add_item(no_btn)
+    await send_response(ctx_or_int, "⚠️ **WARNING:** This will clear ALL warnings and mutes from the database. Are you sure?", view=view)
+
 
 
 @bot.command(name="resetwarns")
