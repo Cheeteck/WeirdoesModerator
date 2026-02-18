@@ -50,7 +50,7 @@ Weirdoes Moderator is a moderation bot originally built for the Weirdoes server,
    ```
 3. Run the bot: `python main.py`
 
-## Jarivs
+## Jarvis
 
 The bot has a Jarvis system, of course based on Jarvis from the Iron Man movies. Jarvis can execute commands just like if you did it yourself
 
