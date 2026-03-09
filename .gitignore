@@ -2,3 +2,5 @@
 /servers/*
 /servers
 .env
+.gitignore
+__pycache__
