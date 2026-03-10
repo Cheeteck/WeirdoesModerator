@@ -414,7 +414,6 @@ class Minecraft(commands.Cog):
     minecraft_group = app_commands.Group(name="minecraft", description="Minecraft module commands")
 
     # ── /minecraft setup ─────────────────────────────────────────────────────
-
     @minecraft_group.command(name="setup", description="Start the 10-minute handshake window so WMMC can tether to this Discord server")
     async def minecraft_setup_slash(self, interaction: discord.Interaction):
         await self._execute_minecraft_setup(interaction)

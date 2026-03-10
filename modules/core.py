@@ -44,7 +44,9 @@ def get_author(ctx_or_int):
     if isinstance(ctx_or_int, discord.Interaction): return ctx_or_int.user
     return getattr(ctx_or_int, 'author', None)
 
-def parse_duration(duration_str: str) -> int:
+from typing import Optional
+
+def parse_duration(duration_str: str) -> Optional[int]:
     duration_str = duration_str.lower().strip()
     match = re.match(r'^(\d+)([smhd])$', duration_str)
     if not match: return None
@@ -118,7 +120,7 @@ class Core(commands.Cog):
             if ctx.command and ctx.command.cog:
                 cog_name = ctx.command.cog.__class__.__name__
                 if not is_module_enabled(ctx.guild.id, cog_name):
-                    return await ctx.reply(f"❌ The `{cog_name}` module is disabled for this server. Use `!module enable {cog_name}` to use it.")
+                    return await ctx.reply(f"❌ Command disabled, enable with `!module enable {cog_name}`")
             return await ctx.reply("❌ You do not have permission to use this command.")
         
         # Log other errors but maybe don't spam chat
@@ -156,6 +158,78 @@ class Core(commands.Cog):
                                 print(f"Loaded module cog: {obj.__name__}")
             except Exception as e:
                 print(f"Error loading module {mod_name}: {e}")
+
+
+
+    # ===== Core Slash Commands =====
+    @app_commands.command(name="warn", description="Warn a user")
+    async def warn_slash(self, interaction: discord.Interaction, member: discord.Member, reason: str):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        await self.execute_warn(interaction, member, reason)
+
+    @app_commands.command(name="hwarn", description="Show user history")
+    async def hwarn_slash(self, interaction: discord.Interaction, member: discord.Member):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        await self.execute_hwarn(interaction, member)
+
+    @app_commands.command(name="mute", description="Mute a user")
+    async def mute_slash(self, interaction: discord.Interaction, member: discord.Member, duration: str, reason: str):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        await self.execute_mute(interaction, member, duration, reason)
+
+    @app_commands.command(name="unmute", description="Unmute a user")
+    async def unmute_slash(self, interaction: discord.Interaction, member: discord.Member):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        try:
+            await member.timeout(None)
+            await interaction.response.send_message(f"✅ **{member.mention}** has been unmuted.")
+        except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
+
+    @app_commands.command(name="kick", description="Kick a user")
+    async def kick_slash(self, interaction: discord.Interaction, member: discord.Member, reason: str = "None"):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if member == interaction.guild.owner: return await interaction.response.send_message("❌ Cannot kick owner.", ephemeral=True)
+        try:
+            await member.kick(reason=reason)
+            await interaction.response.send_message(f"👢 **{member.name}** kicked. Reason: {reason}")
+        except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
+
+    @app_commands.command(name="ban", description="Ban a user")
+    async def ban_slash(self, interaction: discord.Interaction, member: discord.Member, reason: str = "None"):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if member == interaction.guild.owner: return await interaction.response.send_message("❌ Cannot ban owner.", ephemeral=True)
+        try:
+            await member.ban(reason=reason)
+            await interaction.response.send_message(f"🔨 **{member.name}** banned. Reason: {reason}")
+        except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
+
+    @app_commands.command(name="unban", description="Unban a user by ID")
+    async def unban_slash(self, interaction: discord.Interaction, user_id: str):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        try:
+            user = await self.bot.fetch_user(int(user_id))
+            await interaction.guild.unban(user)
+            await interaction.response.send_message(f"✅ **{user.name}** has been unbanned.")
+        except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
+
+    @app_commands.command(name="delwarn", description="Delete specific warnings from a user")
+    async def delwarn_slash(self, interaction: discord.Interaction, member: discord.Member):
+        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        await self.execute_delwarn(interaction, member)
+
+    @app_commands.command(name="modrole", description="Add/Remove a moderator role")
+    async def modrole_slash_cmd(self, interaction: discord.Interaction, role: discord.Role):
+        if not interaction.user.guild_permissions.administrator: return await interaction.response.send_message("❌ Admins only.", ephemeral=True)
+        data = load_server_data(interaction.guild_id, "info.json") or {}
+        roles = data.get("mod_roles", [])
+        if role.id in roles:
+            roles.remove(role.id)
+            await interaction.response.send_message(f"🗑️ Removed mod role {role.name}.")
+        else:
+            roles.append(role.id)
+            await interaction.response.send_message(f"✅ Added mod role {role.name}.")
+        data["mod_roles"] = roles
+        save_server_data(interaction.guild_id, "info.json", data)
 
     # ===== Modules CommandGroup =====
     @app_commands.command(name="module", description="Manage enabled modules for this server")
@@ -196,11 +270,14 @@ class Core(commands.Cog):
     async def help_command(self, ctx):
         await self.perform_help(ctx)
 
-    async def perform_help(self, ctx_or_int):
+    async def perform_help(self, ctx_or_int, specific_cog=None):
         guild_id = getattr(ctx_or_int.guild, "id", None)
-        embed = discord.Embed(title="🤖 Bot Commands", description="Available commands (based on enabled server modules):", color=0x7289DA)
+        title = f"🤖 {specific_cog} Commands" if specific_cog else "🤖 Bot Commands"
+        embed = discord.Embed(title=title, description="Available commands (based on enabled server modules):", color=0x7289DA)
         
         for cog_name, cog in self.bot.cogs.items():
+            if specific_cog and cog_name.lower() != specific_cog.lower():
+                continue
             if guild_id and not is_module_enabled(guild_id, cog_name):
                 continue
                 
@@ -213,7 +290,10 @@ class Core(commands.Cog):
                 if value: embed.add_field(name=f"📦 {cog_name}", value=value, inline=False)
                 
         if isinstance(ctx_or_int, discord.Interaction):
-            await ctx_or_int.response.send_message(embed=embed)
+            if ctx_or_int.response.is_done():
+                await ctx_or_int.followup.send(embed=embed)
+            else:
+                await ctx_or_int.response.send_message(embed=embed)
         else:
             await ctx_or_int.send(embed=embed)
 

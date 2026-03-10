@@ -80,7 +80,10 @@ class Module:
             async def interaction_check(self, interaction: discord.Interaction):
                 if not getattr(interaction, "guild_id", None):
                     return True
-                return is_module_enabled(interaction.guild_id, self.__class__.__name__)
+                enabled = is_module_enabled(interaction.guild_id, self.__class__.__name__)
+                if not enabled:
+                    await interaction.response.send_message(f"❌ Command disabled, enable with `!module enable {self.__class__.__name__}`", ephemeral=True)
+                return enabled
             cls.interaction_check = interaction_check
             
             return cls
