@@ -48,7 +48,6 @@ class NatLang(commands.Cog):
     async def _do_natlang(self, target, query):
         if not groq_client: return await self._send_or_reply(target, "❌ Groq API key not configured.", ephemeral=True)
         
-        # Determine guild/author/etc from target
         guild = target.guild
         author = target.user if isinstance(target, discord.Interaction) else target.author
         
@@ -71,9 +70,6 @@ Actions: warn(user_id, reason), mute(user_id, duration, reason), unmute(user_id)
             we_cog = self.bot.get_cog("WarnsExtras")
             ld_cog = self.bot.get_cog("Lockdown")
             
-            # Helper to generate message-like object for legacy method calls if needed
-            pseudo_msg = target if not isinstance(target, discord.Interaction) else None
-            
             if action == "unban":
                 user = await self.bot.fetch_user(int(args["user_id"]))
                 await guild.unban(user)
@@ -82,9 +78,9 @@ Actions: warn(user_id, reason), mute(user_id, duration, reason), unmute(user_id)
             t_member = await guild.fetch_member(int(args["user_id"]))
             if t_member == guild.owner: return await self._send_or_reply(target, "❌ Cannot moderate owner.", ephemeral=True)
 
-            if action == "warn" and core_cog: await core_cog._do_warn(target, t_member, args.get("reason", "AI-decision"))
-            elif action == "mute" and core_cog: await core_cog._do_mute(target, t_member, args.get("duration", "10m"), args.get("reason", "AI-decision"))
-            elif action == "unmute" and core_cog: 
+            if action == "warn" and core_cog: await core_cog.execute_warn(target, t_member, args.get("reason", "AI-decision"))
+            elif action == "mute" and core_cog: await core_cog.execute_mute(target, t_member, args.get("duration", "10m"), args.get("reason", "AI-decision"))
+            elif action == "unmute" and core_cog:
                 await t_member.timeout(None)
                 await self._send_or_reply(target, f"✅ Unmuted {t_member.mention}")
             elif action == "kick":
@@ -93,7 +89,7 @@ Actions: warn(user_id, reason), mute(user_id, duration, reason), unmute(user_id)
             elif action == "ban":
                 await t_member.ban(reason=args.get("reason"))
                 await self._send_or_reply(target, f"🔨 Banned {t_member.name}")
-            elif action == "hwarn" and core_cog: await core_cog._do_hwarn(target, t_member)
+            elif action == "hwarn" and core_cog: await core_cog.execute_hwarn(target, t_member)
             elif action == "allwarns" and we_cog: await we_cog._do_allwarns(target)
             elif action == "clearwarns" and we_cog: await we_cog._do_clearwarns(target, t_member)
             elif action == "resetwarns" and we_cog: await we_cog._do_resetwarns(target)
