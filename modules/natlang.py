@@ -11,6 +11,8 @@ from modules.core import is_moderator
 groq_client = Groq(api_key=os.getenv("GROQ")) if os.getenv("GROQ") else None
 
 @Module.dependency.soft("WarnsExtras")
+@Module.dependency.soft("Lockdown")
+@Module.version("1.1")
 @Module.enabled()
 @Module.help(
     commands={
@@ -48,7 +50,6 @@ class NatLang(commands.Cog):
     async def _do_natlang(self, target, query):
         if not groq_client: return await self._send_or_reply(target, "❌ Groq API key not configured.", ephemeral=True)
         
-        # Determine guild/author/etc from target
         guild = target.guild
         author = target.user if isinstance(target, discord.Interaction) else target.author
         
@@ -71,29 +72,36 @@ Actions: warn(user_id, reason), mute(user_id, duration, reason), unmute(user_id)
             we_cog = self.bot.get_cog("WarnsExtras")
             ld_cog = self.bot.get_cog("Lockdown")
             
-            # Helper to generate message-like object for legacy method calls if needed
-            pseudo_msg = target if not isinstance(target, discord.Interaction) else None
-            
+            # Action to Level mapping
+            lvl_map = {
+                "warn": 1, "mute": 1, "unmute": 1, "hwarn": 1, "allwarns": 1, "lock": 2, "unlock": 2,
+                "kick": 2, "ban": 2, "unban": 2, "clearwarns": 2,
+                "resetwarns": 3, "lockdown": 2
+            }
+            req_lvl = lvl_map.get(action, 1)
+            if not is_moderator(author, min_level=req_lvl):
+                return await self._send_or_reply(target, f"Permission Level {req_lvl} required for '{action}'.", ephemeral=True)
+
             if action == "unban":
                 user = await self.bot.fetch_user(int(args["user_id"]))
                 await guild.unban(user)
-                return await self._send_or_reply(target, f"✅ Unbanned {user.name}")
+                return await self._send_or_reply(target, f"Unbanned {user.name}")
 
             t_member = await guild.fetch_member(int(args["user_id"]))
-            if t_member == guild.owner: return await self._send_or_reply(target, "❌ Cannot moderate owner.", ephemeral=True)
+            if t_member == guild.owner: return await self._send_or_reply(target, "Cannot moderate owner.", ephemeral=True)
 
-            if action == "warn" and core_cog: await core_cog._do_warn(target, t_member, args.get("reason", "AI-decision"))
-            elif action == "mute" and core_cog: await core_cog._do_mute(target, t_member, args.get("duration", "10m"), args.get("reason", "AI-decision"))
-            elif action == "unmute" and core_cog: 
+            if action == "warn" and core_cog: await core_cog.execute_warn(target, t_member, args.get("reason", "AI-decision"))
+            elif action == "mute" and core_cog: await core_cog.execute_mute(target, t_member, args.get("duration", "10m"), args.get("reason", "AI-decision"))
+            elif action == "unmute" and core_cog:
                 await t_member.timeout(None)
-                await self._send_or_reply(target, f"✅ Unmuted {t_member.mention}")
+                await self._send_or_reply(target, f"Unmuted {t_member.mention}")
             elif action == "kick":
                 await t_member.kick(reason=args.get("reason"))
-                await self._send_or_reply(target, f"👢 Kicked {t_member.name}")
+                await self._send_or_reply(target, f"Kicked {t_member.name}")
             elif action == "ban":
                 await t_member.ban(reason=args.get("reason"))
-                await self._send_or_reply(target, f"🔨 Banned {t_member.name}")
-            elif action == "hwarn" and core_cog: await core_cog._do_hwarn(target, t_member)
+                await self._send_or_reply(target, f"Banned {t_member.name}")
+            elif action == "hwarn" and core_cog: await core_cog.execute_hwarn(target, t_member)
             elif action == "allwarns" and we_cog: await we_cog._do_allwarns(target)
             elif action == "clearwarns" and we_cog: await we_cog._do_clearwarns(target, t_member)
             elif action == "resetwarns" and we_cog: await we_cog._do_resetwarns(target)
@@ -101,22 +109,22 @@ Actions: warn(user_id, reason), mute(user_id, duration, reason), unmute(user_id)
                 c_id = args.get("channel_id")
                 ch = guild.get_channel(int(c_id)) if c_id else (target.channel if hasattr(target, 'channel') else target.channel)
                 await ld_cog._lock_channel(ch)
-                await self._send_or_reply(target, f"🔒 Locked {ch.mention}")
+                await self._send_or_reply(target, f"Locked {ch.mention}")
             elif action == "unlock" and ld_cog:
                 c_id = args.get("channel_id")
                 ch = guild.get_channel(int(c_id)) if c_id else (target.channel if hasattr(target, 'channel') else target.channel)
                 await ld_cog._unlock_channel(ch)
-                await self._send_or_reply(target, f"🔓 Unlocked {ch.mention}")
+                await self._send_or_reply(target, f"Unlocked {ch.mention}")
             elif action == "lockdown" and ld_cog:
                 count = 0
                 for ch in guild.channels:
                     if isinstance(ch, (discord.TextChannel, discord.ForumChannel)):
                         try: await ld_cog._lock_channel(ch); count += 1
                         except: pass
-                await self._send_or_reply(target, f"🔒 Locked {count} channels.")
-            else: await self._send_or_reply(target, f"🤔 Unknown action: {action}", ephemeral=True)
+                await self._send_or_reply(target, f"Locked {count} channels.")
+            else: await self._send_or_reply(target, f"Unknown action: {action}", ephemeral=True)
 
-        except Exception as e: await self._send_or_reply(target, f"❌ AI Error: {e}", ephemeral=True)
+        except Exception as e: await self._send_or_reply(target, f"AI Error: {e}", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(NatLang(bot))

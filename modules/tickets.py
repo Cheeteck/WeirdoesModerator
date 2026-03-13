@@ -54,6 +54,7 @@ class TicketButton(discord.ui.View):
         except:
             pass
 
+@Module.version("1.1")
 @Module.enabled()
 @Module.help(
     commands={
@@ -84,8 +85,8 @@ class Tickets(commands.Cog):
     # ─── Setup ────────────────────────────────────────────────────────────────
     @tickets_group.command(name="setup", description="Set up the ticket system")
     async def setup_slash(self, interaction: discord.Interaction):
-        if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=3):
+            return await interaction.response.send_message("❌ Administrator permission (Level 3) required.", ephemeral=True)
         await self._do_setup(interaction)
 
     @commands.group(name="tickets", aliases=["ticket"], invoke_without_command=True)
@@ -94,8 +95,8 @@ class Tickets(commands.Cog):
 
     @tickets_cmd.command(name="setup")
     async def setup_prefix(self, ctx):
-        if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=3):
+            return await ctx.reply("❌ Administrator permission (Level 3) required.")
         await self._do_setup(ctx)
 
     async def _do_setup(self, target):
@@ -123,14 +124,14 @@ class Tickets(commands.Cog):
     # ─── Close ────────────────────────────────────────────────────────────────
     @tickets_group.command(name="close", description="Close the current ticket")
     async def close_slash(self, interaction: discord.Interaction):
-        if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=1):
+            return await interaction.response.send_message("❌ Permission denied (Level 1 required).", ephemeral=True)
         await self._do_close(interaction)
 
     @tickets_cmd.command(name="close")
     async def close_prefix(self, ctx):
-        if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=1):
+            return await ctx.reply("❌ Permission denied (Level 1 required).")
         await self._do_close(ctx)
 
     async def _do_close(self, target):
@@ -164,14 +165,14 @@ class Tickets(commands.Cog):
     # ─── Reopen ────────────────────────────────────────────────────────────────
     @tickets_group.command(name="reopen", description="Reopen a closed ticket")
     async def reopen_slash(self, interaction: discord.Interaction):
-        if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=1):
+            return await interaction.response.send_message("❌ Permission denied (Level 1 required).", ephemeral=True)
         await self._do_reopen(interaction)
 
     @tickets_cmd.command(name="reopen")
     async def reopen_prefix(self, ctx):
-        if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=1):
+            return await ctx.reply("❌ Permission denied (Level 1 required).")
         await self._do_reopen(ctx)
 
     async def _do_reopen(self, target):
@@ -217,14 +218,14 @@ class Tickets(commands.Cog):
     # ─── Create ───────────────────────────────────────────────────────────────
     @tickets_group.command(name="create", description="Create a ticket for another user")
     async def create_slash_cmd(self, interaction: discord.Interaction, member: discord.Member):
-        if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=1):
+            return await interaction.response.send_message("❌ Permission denied (Level 1 required).", ephemeral=True)
         await self._do_create(interaction, member)
 
     @tickets_cmd.command(name="create")
     async def create_prefix_cmd(self, ctx, member: discord.Member):
-        if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=1):
+            return await ctx.reply("❌ Permission denied (Level 1 required).")
         await self._do_create(ctx, member)
 
     async def _do_create(self, target, member):
@@ -262,14 +263,14 @@ class Tickets(commands.Cog):
     # ─── Remove ───────────────────────────────────────────────────────────────
     @tickets_group.command(name="remove-system", description="Remove the ticket system")
     async def remove_system_slash(self, interaction: discord.Interaction):
-        if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=3):
+            return await interaction.response.send_message("❌ Administrator permission (Level 3) required.", ephemeral=True)
         await self._do_remove_prompt(interaction)
 
     @tickets_cmd.command(name="remove-system")
     async def remove_system_prefix(self, ctx):
-        if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=3):
+            return await ctx.reply("❌ Administrator permission (Level 3) required.")
         await self._do_remove_prompt(ctx)
 
     async def _do_remove_prompt(self, target):
@@ -280,7 +281,7 @@ class Tickets(commands.Cog):
             
         view = discord.ui.View()
         async def confirm(intx):
-            if not is_moderator(intx.user): return await intx.response.send_message("❌ Denied.", ephemeral=True)
+            if not is_moderator(intx.user, min_level=3): return await intx.response.send_message("❌ Denied.", ephemeral=True)
             await intx.response.defer()
             for k in ["category_id", "resolved_id", "channel_id"]:
                 c = guild.get_channel(data.get(k))

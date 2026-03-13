@@ -389,6 +389,7 @@ def _start_permanent_api_server():
 # Discord Cog
 # ──────────────────────────────────────────────────────────────────────────────
 
+@Module.version("1.1")
 @Module.enabled()
 @Module.help(
     commands={
@@ -423,8 +424,8 @@ class Minecraft(commands.Cog):
         guild_name = (ctx_or_int.guild.name if isinstance(ctx_or_int, discord.Interaction) else ctx_or_int.guild.name)
         is_int = isinstance(ctx_or_int, discord.Interaction)
 
-        if not (ctx_or_int.user if is_int else ctx_or_int.author).guild_permissions.administrator:
-            return await send_response(ctx_or_int, "❌ Admins only.", ephemeral=True)
+        if not is_moderator(ctx_or_int.user if is_int else ctx_or_int.author, min_level=3):
+            return await send_response(ctx_or_int, "Administrator permission (Level 3) required.", ephemeral=True)
 
         embed = discord.Embed(
             title="🔗 Minecraft Setup — Handshake Window Open",
@@ -456,7 +457,7 @@ class Minecraft(commands.Cog):
             result = await loop.run_in_executor(None, lambda: done_event.wait(HANDSHAKE_TIMEOUT))
             if result:
                 success_embed = discord.Embed(
-                    title="✅ Handshake Complete!",
+                    title="Handshake Complete!",
                     description=(
                         f"Your Minecraft server has successfully tethered to **{guild_name}**.\n"
                         f"Discord server ID `{guild_id}` is now saved on the Minecraft side.\n\n"
@@ -470,7 +471,7 @@ class Minecraft(commands.Cog):
                     await ctx_or_int.channel.send(embed=success_embed)
             else:
                 timeout_embed = discord.Embed(
-                    title="⏰ Handshake Timed Out",
+                    title="Handshake Timed Out",
                     description=(
                         "The 10-minute window expired without a Minecraft server connecting.\n"
                         "Run `/minecraft setup` again when you're ready to try."
@@ -496,34 +497,34 @@ class Minecraft(commands.Cog):
     async def minecraft_link_slash(self, interaction: discord.Interaction,
                              member: discord.Member, minecraft_name: str):
         if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Moderators only.", ephemeral=True)
+            return await interaction.response.send_message("Moderators only.", ephemeral=True)
 
         links = load_mc_links(interaction.guild_id)
         links[str(member.id)] = minecraft_name
         save_mc_links(interaction.guild_id, links)
-        await interaction.response.send_message(f"✅ Linked **{member.name}** ↔ `{minecraft_name}`.")
+        await interaction.response.send_message(f"Linked **{member.name}** ↔ `{minecraft_name}`.")
 
     @minecraft_group.command(name="unlink", description="Remove a Discord↔Minecraft account link")
     async def minecraft_unlink_slash(self, interaction: discord.Interaction, member: discord.Member):
         if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Moderators only.", ephemeral=True)
+            return await interaction.response.send_message("Moderators only.", ephemeral=True)
 
         links = load_mc_links(interaction.guild_id)
         if str(member.id) not in links:
-            return await interaction.response.send_message(f"⚠️ {member.name} is not linked.", ephemeral=True)
+            return await interaction.response.send_message(f"{member.name} is not linked.", ephemeral=True)
 
         mc_name = links.pop(str(member.id))
         save_mc_links(interaction.guild_id, links)
-        await interaction.response.send_message(f"✅ Unlinked **{member.name}** (was `{mc_name}`).")
+        await interaction.response.send_message(f"Unlinked **{member.name}** (was `{mc_name}`).")
 
     @minecraft_group.command(name="links", description="List all Discord↔Minecraft account links")
     async def minecraft_links_slash(self, interaction: discord.Interaction):
         if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Moderators only.", ephemeral=True)
+            return await interaction.response.send_message("Moderators only.", ephemeral=True)
 
         links = load_mc_links(interaction.guild_id)
         if not links:
-            return await interaction.response.send_message("ℹ️ No accounts linked yet.", ephemeral=True)
+            return await interaction.response.send_message("No accounts linked yet.", ephemeral=True)
 
         lines = []
         for discord_id, mc_name in links.items():
@@ -543,7 +544,7 @@ class Minecraft(commands.Cog):
     async def punish_slash(self, interaction: discord.Interaction,
                            player: str, rule_id: str, degree: int | None = None):
         if not is_moderator(interaction.user):
-            return await interaction.response.send_message("❌ Moderators only.", ephemeral=True)
+            return await interaction.response.send_message("Moderators only.", ephemeral=True)
 
         await self._execute_punish(interaction, player, rule_id, degree)
 
@@ -579,7 +580,7 @@ class Minecraft(commands.Cog):
             reason = f"Rule {rule_id} ({rule_name}) — manual infraction (via Discord)"
             add_mc_infraction(guild_id, resolved_player, mod.id, rule_id, 0, "manual", reason)
             embed = discord.Embed(
-                title="📝 Manual Infraction Logged",
+                title="Manual Infraction Logged",
                 description=(f"**Player:** `{resolved_player}`\n**Rule:** `{rule_id}` — {rule_name}\n**Issued by:** {mod.mention}"),
                 color=0xffaa00
             )
@@ -587,7 +588,7 @@ class Minecraft(commands.Cog):
 
         if degree is None: degree = 1
         if degree < 1 or degree > len(punishments):
-            return await send_response(ctx_or_int, f"❌ Invalid degree `{degree}`. Valid: 1–{len(punishments)}.")
+            return await send_response(ctx_or_int, f"Invalid degree `{degree}`. Valid: 1–{len(punishments)}.")
 
         punishment_str = punishments[degree - 1]
         reason = f"Minecraft Rule {rule_id} ({rule_name}) — {degree}° violation"
@@ -608,37 +609,37 @@ class Minecraft(commands.Cog):
                     from datetime import timedelta
                     if punishment_str == "perm_ban":
                         await linked_member.ban(reason=reason)
-                        discord_action = f"🔨 **Ban executed on Discord for {linked_member.mention}.**"
+                        discord_action = f"Ban executed on Discord for {linked_member.mention}."
                     elif punishment_str == "warn":
                         add_warning(guild_id, linked_member.id, mod.id, reason)
-                        discord_action = f"⚠️ **Warning logged on Discord for {linked_member.mention}.**"
+                        discord_action = f"Warning logged on Discord for {linked_member.mention}."
                     else:
                         dur_str = punishment_str.split("_")[-1]
                         dur_sec = parse_duration(dur_str)
                         if dur_sec:
                             if dur_sec <= 2419200:
                                 await linked_member.timeout(timedelta(seconds=dur_sec), reason=reason)
-                                discord_action = f"🔇 **Muted (Timeout) for {dur_str} on Discord.**"
+                                discord_action = f"Muted (Timeout) for {dur_str} on Discord."
                             else:
                                 await linked_member.ban(reason=reason)
-                                discord_action = f"🔨 **Banned (exceeds timeout limit) on Discord.**"
+                                discord_action = f"Banned (exceeds timeout limit) on Discord."
                         elif "ban" in punishment_str:
                             await linked_member.ban(reason=reason)
-                            discord_action = f"🔨 **Ban executed on Discord.**"
+                            discord_action = f"Ban executed on Discord."
                 except Exception as e:
                     if "Missing Permissions" in str(e) or "403" in str(e):
-                        discord_action = f"⚠️ *Linked to {linked_member.mention}, but WMD lacks permissions to punish them (check role hierarchy).* "
+                        discord_action = f"*Linked to {linked_member.mention}, but WMD lacks permissions to punish them (check role hierarchy).* "
                     else:
-                        discord_action = f"⚠️ *Linked to {linked_member.mention}, but Discord punishment failed: {e}*"
+                        discord_action = f"*Linked to {linked_member.mention}, but Discord punishment failed: {e}*"
         else:
-            discord_action = "ℹ️ *Player not linked to Discord. Recorded for Minecraft only.*"
+            discord_action = "*Player not linked to Discord. Recorded for Minecraft only.*"
 
         # 4. Log MC infraction and Queue Sync for WMMC
         add_mc_infraction(guild_id, resolved_player, mod.id, rule_id, degree, punishment_str, reason)
         add_pending_mc_command(guild_id, f"punish {resolved_player} {rule_id} {degree}")
 
         embed = discord.Embed(
-            title="⚖️ Minecraft Punishment Record",
+            title="Minecraft Punishment Record",
             description=(
                 f"**Player:** `{resolved_player}`\n"
                 f"**Rule:** `{rule_id}` — {rule_name}\n"
@@ -656,9 +657,9 @@ class Minecraft(commands.Cog):
     @commands.command(name="punish")
     async def punish_command(self, ctx, player: str = None, rule_id: str = None, degree: int = None):
         if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Moderators only.")
+            return await ctx.reply("Moderators only.")
         if not player or not rule_id:
-            return await ctx.reply("⚠️ Usage: `!punish <player> <rule_id> [degree]`")
+            return await ctx.reply("Usage: `!punish <player> <rule_id> [degree]`")
         await self._execute_punish(ctx, player, rule_id, degree)
 
     # ── Prefix group for !minecraft ──────────────────────────────────────────
@@ -666,7 +667,7 @@ class Minecraft(commands.Cog):
     @commands.group(name="minecraft", invoke_without_command=True)
     async def minecraft_prefix(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.reply("⚠️ Usage: `!minecraft <setup|status|rules|link|unlink|links>`")
+            await ctx.reply("Usage: `!minecraft <setup|status|rules|link|unlink|links>`")
 
     @minecraft_prefix.command(name="setup")
     async def minecraft_setup_prefix(self, ctx):
@@ -683,32 +684,32 @@ class Minecraft(commands.Cog):
     @minecraft_prefix.command(name="link")
     async def minecraft_link_prefix(self, ctx, member: discord.Member, mc_name: str):
         if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Moderators only.")
+            return await ctx.reply("Moderators only.")
         links = load_mc_links(ctx.guild.id)
         links[str(member.id)] = mc_name
         save_mc_links(ctx.guild.id, links)
-        await ctx.reply(f"✅ Linked **{member.name}** ↔ `{mc_name}`.")
+        await ctx.reply(f"Linked **{member.name}** ↔ `{mc_name}`.")
 
     @minecraft_prefix.command(name="unlink")
     async def minecraft_unlink_prefix(self, ctx, member: discord.Member):
         if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Moderators only.")
+            return await ctx.reply("Moderators only.")
         links = load_mc_links(ctx.guild.id)
         if str(member.id) not in links:
-            return await ctx.reply(f"⚠️ {member.name} is not linked.")
+            return await ctx.reply(f"{member.name} is not linked.")
         mc_name = links.pop(str(member.id))
         save_mc_links(ctx.guild.id, links)
-        await ctx.reply(f"✅ Unlinked **{member.name}** (was `{mc_name}`).")
+        await ctx.reply(f"Unlinked **{member.name}** (was `{mc_name}`).")
 
     @minecraft_prefix.command(name="links")
     async def minecraft_links_prefix(self, ctx):
         if not is_moderator(ctx.author):
-            return await ctx.reply("❌ Moderators only.")
+            return await ctx.reply("Moderators only.")
         links = load_mc_links(ctx.guild.id)
         if not links:
-            return await ctx.reply("ℹ️ No linked accounts.")
+            return await ctx.reply("No linked accounts.")
         text = "\n".join(f"<@{d_id}> ↔ `{n}`" for d_id, n in links.items())
-        await ctx.reply(embed=discord.Embed(title="🔗 Linked Accounts", description=text, color=0x5865F2))
+        await ctx.reply(embed=discord.Embed(title="Linked Accounts", description=text, color=0x5865F2))
 
     # ── Refactored Logic for Parity ──────────────────────────────────────────
 
@@ -719,7 +720,7 @@ class Minecraft(commands.Cog):
         infractions = load_mc_infractions(guild_id)
         api_status = "🟢 Running" if _api_server is not None else "🔴 Not running"
 
-        embed = discord.Embed(title="🎮 Minecraft Module Status", color=0x5865F2)
+        embed = discord.Embed(title="Minecraft Module Status", color=0x5865F2)
         embed.add_field(name="Permanent API (port 7912)", value=api_status, inline=False)
         embed.add_field(name="Synced Rules", value=str(len(rules)), inline=True)
         embed.add_field(name="Linked Accounts", value=str(len(links)), inline=True)
@@ -731,9 +732,9 @@ class Minecraft(commands.Cog):
         guild_id = ctx_or_int.guild_id if isinstance(ctx_or_int, discord.Interaction) else ctx_or_int.guild.id
         rules = load_mc_rules(guild_id)
         if not rules:
-            return await send_response(ctx_or_int, "⚠️ No rules synced yet.", ephemeral=True)
+            return await send_response(ctx_or_int, "No rules synced yet.", ephemeral=True)
 
-        embed = discord.Embed(title="📋 Minecraft Server Rules", color=0xffaa00)
+        embed = discord.Embed(title="Minecraft Server Rules", color=0xffaa00)
         for rule_id, rule in rules.items():
             name = rule.get("name", f"Rule {rule_id}")
             desc = rule.get("description", "")

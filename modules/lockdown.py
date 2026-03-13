@@ -10,6 +10,7 @@ def get_lockdown_data(guild_id: int):
 def save_lockdown_data(guild_id: int, data: dict):
     save_server_data(guild_id, "lockdown.json", data)
 
+@Module.version("1.1")
 @Module.enabled()
 @Module.help(
     commands={
@@ -78,7 +79,7 @@ class Lockdown(commands.Cog):
     # ─── Slash Commands ───────────────────────────────────────────────────────
     @lockdown_group_slash.command(name="server", description="Locks every text channel and forum")
     async def ld_server_slash(self, interaction: discord.Interaction, hide: bool = False):
-        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=2): return await interaction.response.send_message("❌ Higher permission (Level 2) required.", ephemeral=True)
         await interaction.response.defer()
         count = 0
         for channel in interaction.guild.channels:
@@ -91,7 +92,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group_slash.command(name="channel", description="Locks the current or target channel")
     async def ld_channel_slash(self, interaction: discord.Interaction, channel: discord.abc.GuildChannel = None, hide: bool = False):
-        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=2): return await interaction.response.send_message("❌ Higher permission (Level 2) required.", ephemeral=True)
         target = channel or interaction.channel
         try:
             await self._lock_channel(target, hide=hide)
@@ -101,7 +102,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group_slash.command(name="unlock", description="Unlocks target channel or custom set")
     async def ld_unlock_slash(self, interaction: discord.Interaction, target_name: str = None):
-        if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Denied.", ephemeral=True)
+        if not is_moderator(interaction.user, min_level=2): return await interaction.response.send_message("❌ Higher permission (Level 2) required.", ephemeral=True)
         await interaction.response.defer()
         if target_name:
             data = get_lockdown_data(interaction.guild_id)
@@ -117,7 +118,7 @@ class Lockdown(commands.Cog):
     # ─── Prefix Commands ──────────────────────────────────────────────────────
     @commands.group(name="lockdown", invoke_without_command=True)
     async def lockdown_group(self, ctx, *, set_name: str = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         if set_name:
             data = get_lockdown_data(ctx.guild.id)
             if set_name in data["sets"]:
@@ -135,7 +136,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group.command(name="hide")
     async def ld_hide_prefix(self, ctx):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         count = 0
         for ch in ctx.guild.channels:
             if isinstance(ch, (discord.TextChannel, discord.ForumChannel)):
@@ -146,7 +147,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group.command(name="lock")
     async def ld_lock_prefix(self, ctx, channel: discord.abc.GuildChannel = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         target = channel or ctx.channel
         try:
             await self._lock_channel(target)
@@ -156,7 +157,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group.command(name="unlock")
     async def ld_unlock_prefix(self, ctx, *, target_str: str = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         if target_str:
             data = get_lockdown_data(ctx.guild.id)
             if target_str in data["sets"]:
@@ -174,7 +175,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group.command(name="category")
     async def ld_category_prefix(self, ctx, category: discord.CategoryChannel = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         target_cat = category or getattr(ctx.channel, "category", None)
         if not target_cat: return await ctx.reply("❌ No target category.")
         count = 0
@@ -187,7 +188,7 @@ class Lockdown(commands.Cog):
 
     @lockdown_group.command(name="create")
     async def ld_create_prefix(self, ctx, name: str):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author, min_level=2): return await ctx.reply("❌ Higher permission (Level 2) required.")
         channels = ctx.message.channel_mentions
         if not channels: return await ctx.reply("⚠️ Mention channels.")
         data = get_lockdown_data(ctx.guild.id)

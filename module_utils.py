@@ -89,6 +89,13 @@ class Module:
             return cls
         return decorator
 
+    @staticmethod
+    def version(ver_string):
+        def decorator(cls):
+            cls._version = str(ver_string)
+            return cls
+        return decorator
+
 # Add soft dependency static method
 def _dependency_soft(name):
     return Module._dependency(name, soft=True)
