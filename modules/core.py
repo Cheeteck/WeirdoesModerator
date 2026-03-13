@@ -182,7 +182,7 @@ class Core(commands.Cog):
         if not is_moderator(interaction.user): return await interaction.response.send_message("❌ Permission denied.", ephemeral=True)
         try:
             await member.timeout(None)
-            await interaction.response.send_message(f"✅ **{member.mention}** has been unmuted.")
+            await interaction.response.send_message(f"**{member.mention}** has been unmuted.")
         except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
 
     @app_commands.command(name="kick", description="Kick a user")
@@ -191,7 +191,7 @@ class Core(commands.Cog):
         if member == interaction.guild.owner: return await interaction.response.send_message("❌ Cannot kick owner.", ephemeral=True)
         try:
             await member.kick(reason=reason)
-            await interaction.response.send_message(f"👢 **{member.name}** kicked. Reason: {reason}")
+            await interaction.response.send_message(f"**{member.name}** kicked. Reason: {reason}")
         except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
 
     @app_commands.command(name="ban", description="Ban a user")
@@ -200,7 +200,7 @@ class Core(commands.Cog):
         if member == interaction.guild.owner: return await interaction.response.send_message("❌ Cannot ban owner.", ephemeral=True)
         try:
             await member.ban(reason=reason)
-            await interaction.response.send_message(f"🔨 **{member.name}** banned. Reason: {reason}")
+            await interaction.response.send_message(f"**{member.name}** banned. Reason: {reason}")
         except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
 
     @app_commands.command(name="unban", description="Unban a user by ID")
@@ -209,7 +209,7 @@ class Core(commands.Cog):
         try:
             user = await self.bot.fetch_user(int(user_id))
             await interaction.guild.unban(user)
-            await interaction.response.send_message(f"✅ **{user.name}** has been unbanned.")
+            await interaction.response.send_message(f"**{user.name}** has been unbanned.")
         except Exception as e: await interaction.response.send_message(f"❌ Failed: {e}", ephemeral=True)
 
     @app_commands.command(name="delwarn", description="Delete specific warnings from a user")
@@ -224,10 +224,10 @@ class Core(commands.Cog):
         roles = data.get("mod_roles", [])
         if role.id in roles:
             roles.remove(role.id)
-            await interaction.response.send_message(f"🗑️ Removed mod role {role.name}.")
+            await interaction.response.send_message(f"Removed mod role {role.name}.")
         else:
             roles.append(role.id)
-            await interaction.response.send_message(f"✅ Added mod role {role.name}.")
+            await interaction.response.send_message(f"Added mod role {role.name}.")
         data["mod_roles"] = roles
         save_server_data(interaction.guild_id, "info.json", data)
 
@@ -235,15 +235,15 @@ class Core(commands.Cog):
     @app_commands.command(name="module", description="Manage enabled modules for this server")
     async def module_slash(self, interaction: discord.Interaction, action: str, module_name: str):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("❌ This is an admin only command.", ephemeral=True)
+            return await interaction.response.send_message("This is an admin only command.", ephemeral=True)
         if action.lower() == "enable":
             enable_server_module(interaction.guild_id, module_name)
-            await interaction.response.send_message(f"✅ Module `{module_name}` enabled for this server.", ephemeral=False)
+            await interaction.response.send_message(f"Module `{module_name}` enabled for this server.", ephemeral=False)
         elif action.lower() == "disable":
             disable_server_module(interaction.guild_id, module_name)
-            await interaction.response.send_message(f"✅ Module `{module_name}` disabled for this server.", ephemeral=False)
+            await interaction.response.send_message(f"Module `{module_name}` disabled for this server.", ephemeral=False)
         else:
-            await interaction.response.send_message("❌ Action must be either `enable` or `disable`.", ephemeral=True)
+            await interaction.response.send_message("Action must be either `enable` or `disable`.", ephemeral=True)
 
     @commands.group(name="module", invoke_without_command=True)
     async def module_cmd(self, ctx):
@@ -253,13 +253,13 @@ class Core(commands.Cog):
     async def module_enable(self, ctx, module_name: str):
         if not ctx.author.guild_permissions.administrator: return await ctx.reply("❌ Admins only.")
         enable_server_module(ctx.guild.id, module_name)
-        await ctx.reply(f"✅ Module `{module_name}` enabled for this server.")
+        await ctx.reply(f"Module `{module_name}` enabled for this server.")
 
     @module_cmd.command(name="disable")
     async def module_disable(self, ctx, module_name: str):
         if not ctx.author.guild_permissions.administrator: return await ctx.reply("❌ Admins only.")
         disable_server_module(ctx.guild.id, module_name)
-        await ctx.reply(f"✅ Module `{module_name}` disabled for this server.")
+        await ctx.reply(f"Module `{module_name}` disabled for this server.")
 
     # ===== Help Command =====
     @app_commands.command(name="help", description="Show all available commands")
@@ -272,7 +272,7 @@ class Core(commands.Cog):
 
     async def perform_help(self, ctx_or_int, specific_cog=None):
         guild_id = getattr(ctx_or_int.guild, "id", None)
-        title = f"🤖 {specific_cog} Commands" if specific_cog else "🤖 Bot Commands"
+        title = f"🤖 {specific_cog} Commands" if specific_cog else "Bot Commands"
         embed = discord.Embed(title=title, description="Available commands (based on enabled server modules):", color=0x7289DA)
         
         for cog_name, cog in self.bot.cogs.items():
@@ -312,13 +312,13 @@ class Core(commands.Cog):
 
     @commands.command(name="warn")
     async def warn_command(self, ctx, member: discord.Member = None, *, reason: str = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ You don't have permission.")
+        if not is_moderator(ctx.author): return await ctx.reply("You don't have permission.")
         if not member or not reason: return await ctx.reply("⚠️ Usage: `!warn @user reason`")
         await self.execute_warn(ctx, member, reason)
 
     @commands.command(name="hwarn")
     async def hwarn_command(self, ctx, member: discord.Member = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ You don't have permission.")
+        if not is_moderator(ctx.author): return await ctx.reply("You don't have permission.")
         if not member: return await ctx.reply("⚠️ Please mention a user.")
         await self.execute_hwarn(ctx, member)
 
@@ -351,7 +351,7 @@ class Core(commands.Cog):
             items.sort(key=lambda x: x["ts"], reverse=True)
 
         if not items:
-            return await send_response(ctx_or_int, f"✅ **{member.name}** has a clean history!")
+            return await send_response(ctx_or_int, f"**{member.name}** has a clean history!")
 
         embed = discord.Embed(
             title=f"📜 Moderation History — {member.name}",
@@ -381,7 +381,7 @@ class Core(commands.Cog):
     async def execute_delwarn(self, ctx_or_int, member: discord.Member):
         warns = load_server_data(member.guild.id, "warnings.json") or []
         user_warns = [w for w in warns if w["userId"] == str(member.id)]
-        if not user_warns: return await send_response(ctx_or_int, f"✅ **{member.name}** has no warnings.")
+        if not user_warns: return await send_response(ctx_or_int, f"**{member.name}** has no warnings.")
 
         options = [discord.SelectOption(label=f"Warning {i}: {w['reason'][:50]}", value=w["id"]) for i, w in enumerate(user_warns, 1)]
         select = discord.ui.Select(placeholder="Select warnings to remove...", options=options, min_values=1, max_values=len(options))
@@ -389,15 +389,15 @@ class Core(commands.Cog):
         async def select_callback(interaction):
             updated_warnings = [w for w in load_server_data(interaction.guild_id, "warnings.json") if w["id"] not in select.values]
             save_server_data(interaction.guild_id, "warnings.json", updated_warnings)
-            await interaction.response.edit_message(embed=discord.Embed(title="✅ Selected Warnings Deleted", color=0x00ff00), view=None)
+            await interaction.response.edit_message(embed=discord.Embed(title="Selected Warnings Deleted", color=0x00ff00), view=None)
             
         select.callback = select_callback
         view = discord.ui.View().add_item(select)
-        await send_response(ctx_or_int, embed=discord.Embed(title=f"🚨 Remove Warnings for {member.name}", color=0xffcc00), view=view)
+        await send_response(ctx_or_int, embed=discord.Embed(title=f"Remove Warnings for {member.name}", color=0xffcc00), view=view)
 
     @commands.command(name="mute")
     async def mute_command(self, ctx, *, args: str = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ You don't have permission.")
+        if not is_moderator(ctx.author): return await ctx.reply("You don't have permission.")
         if not args: return await ctx.reply("⚠️ Usage: `!mute <user>, <duration>, <reason>`")
         parts = [p.strip() for p in args.split(',', 2)]
         if len(parts) < 3: return await ctx.reply("⚠️ Usage: `!mute <user>, <duration>, <reason>`")
@@ -405,12 +405,12 @@ class Core(commands.Cog):
         member = ctx.guild.get_member_named(user_input) or (ctx.message.mentions[0] if ctx.message.mentions else None)
         if not member:
             try: member = await ctx.guild.fetch_member(int(user_input))
-            except: return await ctx.reply(f"❌ Could not find user.")
+            except: return await ctx.reply(f"Could not find user.")
         await self.execute_mute(ctx, member, duration_str, reason)
 
     async def execute_mute(self, ctx_or_int, member, duration_str, reason):
         if member == ctx_or_int.guild.owner:
-            return await send_response(ctx_or_int, "❌ You cannot mute the server owner!")
+            return await send_response(ctx_or_int, "You cannot mute the server owner!")
         dur = parse_duration(duration_str)
         if not dur: return await send_response(ctx_or_int, "⚠️ Invalid duration. Use format: `10s`, `5m`, `2h`, `1d`")
         try:
@@ -418,62 +418,62 @@ class Core(commands.Cog):
             add_mute(member.guild.id, member.id, get_author(ctx_or_int).id, reason, dur)
             await send_response(ctx_or_int, f"🔇 **{member.mention}** muted for **{duration_str}**. Reason: {reason}")
         except Exception as e:
-            await send_response(ctx_or_int, f"❌ Failed to mute: {e}")
+            await send_response(ctx_or_int, f"Failed to mute: {e}")
 
     @commands.command(name="unmute")
     async def unmute_command(self, ctx, member: discord.Member = None):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ You don't have permission.")
+        if not is_moderator(ctx.author): return await ctx.reply("You don't have permission.")
         if not member: return await ctx.reply("⚠️ Content missing.")
         try:
             await member.timeout(None)
             await ctx.reply(f"✅ **{member.mention}** has been unmuted.")
         except Exception as e:
-            await ctx.reply(f"❌ Failed to unmute: {e}")
+            await ctx.reply(f"Failed to unmute: {e}")
 
     @commands.command(name="kick")
     async def kick_command(self, ctx, member: discord.Member = None, *, reason: str = "None"):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author): return await ctx.reply("Permission denied.")
         if not member: return await ctx.reply("⚠️ Content missing.")
         try:
             if member == ctx.guild.owner:
-                return await ctx.reply("❌ You cannot kick the server owner!")
+                return await ctx.reply("You cannot kick the server owner!")
             await member.kick(reason=reason)
-            await ctx.reply(f"👢 **{member.name}** kicked. Reason: {reason}")
-        except Exception as e: await ctx.reply(f"❌ Failed: {e}")
+            await ctx.reply(f"**{member.name}** kicked. Reason: {reason}")
+        except Exception as e: await ctx.reply(f"Failed: {e}")
 
     @commands.command(name="ban")
     async def ban_command(self, ctx, member: discord.Member = None, *, reason: str = "None"):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author): return await ctx.reply("Permission denied.")
         if not member: return await ctx.reply("⚠️ Content missing.")
         try:
             if member == ctx.guild.owner:
-                return await ctx.reply("❌ You cannot ban the server owner!")
+                return await ctx.reply("You cannot ban the server owner!")
             await member.ban(reason=reason)
             await ctx.reply(f"🔨 **{member.name}** banned. Reason: {reason}")
-        except Exception as e: await ctx.reply(f"❌ Failed: {e}")
+        except Exception as e: await ctx.reply(f"Failed: {e}")
 
     @commands.command(name="unban")
     async def unban_command(self, ctx, user_id: int):
-        if not is_moderator(ctx.author): return await ctx.reply("❌ Permission denied.")
+        if not is_moderator(ctx.author): return await ctx.reply("Permission denied.")
         try:
             user = await self.bot.fetch_user(user_id)
             await ctx.guild.unban(user)
-            await ctx.reply(f"✅ **{user.name}** has been unbanned.")
-        except Exception as e: await ctx.reply(f"❌ Failed: {e}")
+            await ctx.reply(f"**{user.name}** has been unbanned.")
+        except Exception as e: await ctx.reply(f"Failed: {e}")
 
     @commands.command(name="modrole")
     async def modrole_command(self, ctx, role: discord.Role = None):
-        if not ctx.author.guild_permissions.administrator: return await ctx.reply("❌ Admins only.")
+        if not ctx.author.guild_permissions.administrator: return await ctx.reply("Admins only.")
         if not role: return await ctx.reply("⚠️ Need role mention.")
         from module_utils import load_server_data, save_server_data
         data = load_server_data(ctx.guild.id, "info.json") or {}
         roles = data.get("mod_roles", [])
         if role.id in roles:
             roles.remove(role.id)
-            await ctx.reply(f"🗑️ Removed mod role {role.name}.")
+            await ctx.reply(f"Removed mod role {role.name}.")
         else:
             roles.append(role.id)
-            await ctx.reply(f"✅ Added mod role {role.name}.")
+            await ctx.reply(f"Added mod role {role.name}.")
         data["mod_roles"] = roles
         save_server_data(ctx.guild.id, "info.json", data)
 
