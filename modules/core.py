@@ -452,12 +452,10 @@ class Core(commands.Cog):
         if not member:
             try: member = await ctx.guild.fetch_member(int(user_input))
             except: return await ctx.reply(f"Could not find user.")
-            except: return await ctx.reply(f"Could not find user.")
         await self.execute_mute(ctx, member, duration_str, reason)
 
     async def execute_mute(self, ctx_or_int, member, duration_str, reason):
         if member == ctx_or_int.guild.owner:
-            return await send_response(ctx_or_int, "You cannot mute the server owner!")
             return await send_response(ctx_or_int, "You cannot mute the server owner!")
         dur = parse_duration(duration_str)
         if not dur: return await send_response(ctx_or_int, "⚠️ Invalid duration. Use format: `10s`, `5m`, `2h`, `1d`")
@@ -466,7 +464,6 @@ class Core(commands.Cog):
             add_mute(member.guild.id, member.id, get_author(ctx_or_int).id, reason, dur)
             await send_response(ctx_or_int, f"🔇 **{member.mention}** muted for **{duration_str}**. Reason: {reason}")
         except Exception as e:
-            await send_response(ctx_or_int, f"Failed to mute: {e}")
             await send_response(ctx_or_int, f"Failed to mute: {e}")
 
     @commands.command(name="unmute")
@@ -478,7 +475,6 @@ class Core(commands.Cog):
             await ctx.reply(f" **{member.mention}** has been unmuted.")
         except Exception as e:
             await ctx.reply(f"Failed to unmute: {e}")
-            await ctx.reply(f"Failed to unmute: {e}")
 
     @commands.command(name="kick")
     async def kick_command(self, ctx, member: discord.Member = None, *, reason: str = "None"):
@@ -486,7 +482,6 @@ class Core(commands.Cog):
         if not member: return await ctx.reply("⚠️ Content missing.")
         try:
             if member == ctx.guild.owner:
-                return await ctx.reply("You cannot kick the server owner!")
                 return await ctx.reply("You cannot kick the server owner!")
             await member.kick(reason=reason)
             await ctx.reply(f"👢 **{member.name}** kicked. Reason: {reason}")
@@ -499,10 +494,8 @@ class Core(commands.Cog):
         try:
             if member == ctx.guild.owner:
                 return await ctx.reply("You cannot ban the server owner!")
-                return await ctx.reply("You cannot ban the server owner!")
             await member.ban(reason=reason)
             await ctx.reply(f"🔨 **{member.name}** banned. Reason: {reason}")
-        except Exception as e: await ctx.reply(f"Failed: {e}")
         except Exception as e: await ctx.reply(f"Failed: {e}")
 
     @commands.command(name="unban")
