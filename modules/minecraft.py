@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -54,25 +55,13 @@ def add_mc_infraction(guild_id: int, player_name: str, mod_discord_id: int,
         "moderatorDiscordId": str(mod_discord_id),
         "ruleId": rule_id,
         "degree": degree,
-        "punishment": punishment,
+        "punishmentType": punishment,
         "reason": reason,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).timestamp()
     })
     save_mc_infractions(guild_id, records)
 
-def load_pending_mc_commands(guild_id: int) -> list:
-    """Load pending commands for WMMC."""
-    return load_server_data(guild_id, "pending_cmds.json") or []
 
-def save_pending_mc_commands(guild_id: int, commands: list):
-    """Save pending commands for WMMC."""
-    save_server_data(guild_id, "pending_cmds.json", commands)
-
-def add_pending_mc_command(guild_id: int, command: str):
-    """Queue a command for WMMC to sync."""
-    cmds = load_pending_mc_commands(guild_id)
-    cmds.append(command)
-    save_pending_mc_commands(guild_id, cmds)
 
 def get_punishment_for_degree(rule: dict, degree: int) -> str | None:
     """Return the punishment string for a given 1-indexed degree, or None."""
@@ -256,10 +245,17 @@ class PermanentAPIHandler(BaseHTTPRequestHandler):
             formatted_mc = []
             for r in player_mc:
                 ts = r.get("timestamp") or 0
+                if isinstance(ts, str):
+                    try:
+                        ts = datetime.fromisoformat(ts).timestamp()
+                    except ValueError:
+                        ts = 0
+
+                ptype = r.get("punishmentType", r.get("punishment", "Unknown"))
                 formatted_mc.append({
-                    "type": r["punishmentType"].replace("_", " ").title(),
+                    "type": ptype.replace("_", " ").title(),
                     "origin": "Minecraft",
-                    "reason": r["reason"],
+                    "reason": r.get("reason", ""),
                     "timestamp": ts,
                     "date_label": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "N/A"
                 })
@@ -296,18 +292,6 @@ class PermanentAPIHandler(BaseHTTPRequestHandler):
                         })
             self._send_json(200, {"mutes": active_mutes})
 
-        elif parsed.path == "/sync/commands":
-            server_id_list = qs.get("server_id") or qs.get("guild_id")
-            if not server_id_list:
-                return self._send_json(400, {"error": "server_id required"})
-
-            guild_id = int(server_id_list[0])
-            cmds = load_pending_mc_commands(guild_id)
-            if cmds:
-                save_pending_mc_commands(guild_id, []) # Clear the queue
-                print(f"[WMMC API] Syncing {len(cmds)} commands to guild {guild_id}")
-            self._send_json(200, {"commands": cmds})
-
         else:
             self._send_json(404, {"error": "not found"})
 
@@ -324,7 +308,12 @@ class PermanentAPIHandler(BaseHTTPRequestHandler):
         if self.path == "/identify":
             if not target_guild_id:
                 return self._send_json(400, {"error": "discord_server_id required"})
-            print(f"[WMMC API] Identified: Guild {target_guild_id} (Version: {body.get('wmmc_version', 'unknown')})")
+                
+            listen_port = body.get("listen_port")
+            if listen_port:
+                save_server_data(int(target_guild_id), "mc_port.json", {"port": listen_port})
+                
+            print(f"[WMMC API] Identified: Guild {target_guild_id} (Version: {body.get('wmmc_version', 'unknown')}, Port: {listen_port})")
             self._send_json(200, {"status": "identified"})
 
         elif self.path == "/rules/sync":
@@ -389,7 +378,7 @@ def _start_permanent_api_server():
 # Discord Cog
 # ──────────────────────────────────────────────────────────────────────────────
 
-@Module.version("1.1")
+@Module.version("1.2")
 @Module.enabled()
 @Module.help(
     commands={
@@ -636,7 +625,25 @@ class Minecraft(commands.Cog):
 
         # 4. Log MC infraction and Queue Sync for WMMC
         add_mc_infraction(guild_id, resolved_player, mod.id, rule_id, degree, punishment_str, reason)
-        add_pending_mc_command(guild_id, f"punish {resolved_player} {rule_id} {degree}")
+        
+        port_data = load_server_data(guild_id, "mc_port.json")
+        port = port_data.get("port") if port_data else None
+        
+        cmd_string = f"punish {resolved_player} {rule_id} {degree}"
+        if port:
+            async def send_to_wmmc():
+                import aiohttp
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        url = f"http://localhost:{port}/command"
+                        async with session.post(url, json={"command": cmd_string}, timeout=3) as resp:
+                            if resp.status != 200:
+                                print(f"[WMMC API] Failed to push command to WMMC on port {port}: HTTP {resp.status}")
+                except Exception as e:
+                    print(f"[WMMC API] Error pushing command to WMMC on port {port}: {e}")
+            self.bot.loop.create_task(send_to_wmmc())
+        else:
+            print(f"[WMMC API] No port found for guild {guild_id}. Command `{cmd_string}` not sent to Minecraft.")
 
         embed = discord.Embed(
             title="Minecraft Punishment Record",
@@ -773,8 +780,13 @@ class Minecraft(commands.Cog):
             items.append({"origin": "Discord", "type": f"Mute ({m['durationSec']//60}m)", "reason": m["reason"], "ts": ts})
         for r in mc_infractions:
             ts = r.get("timestamp") or 0
-            ptype = r["punishmentType"].replace("_", " ").title()
-            items.append({"origin": "Minecraft", "type": ptype, "reason": r["reason"], "ts": ts})
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts).timestamp()
+                except ValueError:
+                    ts = 0
+            ptype = r.get("punishmentType", r.get("punishment", "Unknown"))
+            items.append({"origin": "Minecraft", "type": ptype.replace("_", " ").title(), "reason": r.get("reason", ""), "ts": ts})
 
         items.sort(key=lambda x: x["ts"], reverse=True)
         return items, mc_name

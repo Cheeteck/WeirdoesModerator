@@ -6,3 +6,5 @@
 __pycache__
 /modules/__pycache__/*
 /.venv
+__pycache__/module_utils.cpython-313.pyc
+__pycache__/*
