@@ -94,7 +94,7 @@ def add_mute(guild_id: int, user_id: int, mod_id: int, reason: str, durationSec:
     mutes.append(new_mute)
     save_server_data(guild_id, "mutes.json", mutes)
 
-@Module.version("1.1")
+@Module.version("1.5")
 @Module.help(
     commands={
         "help": "displays help menu",
@@ -230,8 +230,13 @@ class Core(commands.Cog):
         await self.execute_delwarn(interaction, member)
 
     @app_commands.command(name="modrole", description="Add/Remove a moderator role with a level")
-    async def modrole_slash_cmd(self, interaction: discord.Interaction, role: discord.Role, level: int = 1):
+    async def modrole_slash_cmd(self, interaction: discord.Interaction, role: discord.Role = None, level: int = 1):
         if not interaction.user.guild_permissions.administrator: return await interaction.response.send_message("Admins only.", ephemeral=True)
+        
+        if not role:
+            embed = self._get_modrole_help_embed()
+            return await interaction.response.send_message(embed=embed)
+
         if level < 1 or level > 3: return await interaction.response.send_message("Level must be 1, 2, or 3.", ephemeral=True)
         
         data = load_server_data(interaction.guild_id, "info.json") or {}
@@ -249,6 +254,30 @@ class Core(commands.Cog):
             
         data["mod_roles"] = roles
         save_server_data(interaction.guild_id, "info.json", data)
+
+    def _get_modrole_help_embed(self):
+        embed = discord.Embed(
+            title="🛡️ Moderator Levels Explained",
+            description="The bot uses a 3-tier moderator system. Admins can assign roles to these levels.",
+            color=0x7289DA
+        )
+        embed.add_field(
+            name="1️⃣ Level 1: Base Moderator",
+            value="Access to basic moderation: `warn`, `mute`, `hwarn`, `delwarn`, and ticket management.",
+            inline=False
+        )
+        embed.add_field(
+            name="2️⃣ Level 2: Higher Moderator",
+            value="Access to disruptive moderation: `kick`, `ban`, and `unban` (includes all Level 1 commands).",
+            inline=False
+        )
+        embed.add_field(
+            name="3️⃣ Level 3: Administrator",
+            value="Access to bot configuration: `module enable/disable` and system settings (includes all Level 2 commands).",
+            inline=False
+        )
+        embed.set_footer(text="Usage: !modrole <role> [level (1-3)]")
+        return embed
 
     # ===== Modules CommandGroup =====
     @app_commands.command(name="module", description="Manage enabled modules for this server")
@@ -510,7 +539,10 @@ class Core(commands.Cog):
     @commands.group(name="modrole", invoke_without_command=True)
     async def modrole_command(self, ctx, role: discord.Role = None, level: int = 1):
         if not ctx.author.guild_permissions.administrator: return await ctx.reply("Admins only.")
-        if not role: return await ctx.reply("⚠️ Usage: `!modrole <role> [level (1-3)]`")
+        if not role:
+            embed = self._get_modrole_help_embed()
+            return await ctx.reply(embed=embed)
+
         if level < 1 or level > 3: return await ctx.reply("Level must be 1 (Base), 2 (Higher), or 3 (Administrator).")
         
         data = load_server_data(ctx.guild.id, "info.json") or {}
