@@ -34,7 +34,7 @@ class TicketButton(discord.ui.View):
         mod_roles = get_moderator_roles(interaction.guild_id)
         ping_roles = []
         for role_id in mod_roles:
-            role = interaction.guild.get_role(role_id)
+            role = interaction.guild.get_role(int(role_id))
             if role:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, read_message_history=True)
                 ping_roles.append(role)
@@ -54,7 +54,7 @@ class TicketButton(discord.ui.View):
         except:
             pass
 
-@Module.version("1.1")
+@Module.version("1.5")
 @Module.enabled()
 @Module.help(
     commands={
@@ -245,7 +245,7 @@ class Tickets(commands.Cog):
         mod_roles = get_moderator_roles(guild.id)
         ping_roles = []
         for r_id in mod_roles:
-            r = guild.get_role(r_id)
+            r = guild.get_role(int(r_id))
             if r:
                 overwrites[r] = discord.PermissionOverwrite(read_messages=True, send_messages=True, read_message_history=True)
                 ping_roles.append(r)
