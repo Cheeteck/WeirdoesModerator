@@ -94,7 +94,7 @@ def add_mute(guild_id: int, user_id: int, mod_id: int, reason: str, durationSec:
     mutes.append(new_mute)
     save_server_data(guild_id, "mutes.json", mutes)
 
-@Module.version("1.5")
+@Module.version("1.6")
 @Module.help(
     commands={
         "help": "displays help menu",
@@ -348,7 +348,7 @@ class Core(commands.Cog):
     async def perform_help(self, ctx_or_int, specific_cog=None):
         guild_id = getattr(ctx_or_int.guild, "id", None)
         title = f"🤖 {specific_cog} Commands" if specific_cog else "Bot Commands"
-        embed = discord.Embed(title=title, description="Available commands (based on enabled server modules):", color=0x7289DA)
+        embed = discord.Embed(title=title, description="Available commands:", color=0x7289DA)
         
         for cog_name, cog in self.bot.cogs.items():
             if specific_cog and cog_name.lower() != specific_cog.lower():
