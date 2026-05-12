@@ -6,13 +6,14 @@ from datetime import datetime, timedelta
 import asyncio
 from modules.core import is_moderator
 
-@Module.version("1.1")
+@Module.version("1.2")
 @Module.enabled()
 @Module.help(
     commands={
         "allwarns": "shows all warns in a server",
         "clearwarns": "clears all warns from a user",
-        "resetwarns": "clears all warns in the whole server"
+        "resetwarns": "clears all warns in the whole server",
+        "automute": "toggle auto-mute on warnings"
     },
     description="WarnsExtras handles advanced warning features and auto punishments."
 )
@@ -30,13 +31,41 @@ class WarnsExtras(commands.Cog):
     async def on_member_warned(self, member: discord.Member, count: int, reason: str):
         from module_utils import is_module_enabled
         if not is_module_enabled(member.guild.id, "WarnsExtras"): return
-        if count >= 3:
-            hours = (count - 2) * 6
-            duration = timedelta(hours=hours)
-            try:
-                await member.timeout(duration, reason=f"Auto-timeout: Reached {count} warnings")
-                await member.send(f"🔇 You have been automatically timed out in **{member.guild.name}** for {hours} hours due to reaching {count} warnings.")
-            except Exception as e: print(f"Failed to auto-timeout user {member.name}: {e}")
+        
+        info = load_server_data(member.guild.id, "info.json") or {}
+        auto_mute_disabled = info.get("auto_mute_disabled", False)
+        
+        if auto_mute_disabled or count < 3: return
+        
+        hours = (count - 2) * 6
+        duration = timedelta(hours=hours)
+        try:
+            await member.timeout(duration, reason=f"Auto-timeout: Reached {count} warnings")
+            await member.send(f"🔇 You have been automatically timed out in **{member.guild.name}** for {hours} hours due to reaching {count} warnings.")
+        except Exception as e: print(f"Failed to auto-timeout user {member.name}: {e}")
+
+    # ─── Auto Mute Toggle ────────────────────────────────────────────────────
+    @app_commands.command(name="automute", description="Toggle auto-mute on warnings (Admins only)")
+    async def automute_slash(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator: return await interaction.response.send_message("Admins only.", ephemeral=True)
+        await self._do_automute(interaction)
+
+    @commands.command(name="automute")
+    async def automute_prefix(self, ctx):
+        if not ctx.author.guild_permissions.administrator: return await ctx.reply("Admins only.")
+        await self._do_automute(ctx)
+
+    async def _do_automute(self, target):
+        guild_id = target.guild.id
+        info = load_server_data(guild_id, "info.json") or {}
+        auto_mute_disabled = info.get("auto_mute_disabled", False)
+        
+        info["auto_mute_disabled"] = not auto_mute_disabled
+        save_server_data(guild_id, "info.json", info)
+        
+        status = "disabled" if info["auto_mute_disabled"] else "enabled"
+        emoji = "🔇" if info["auto_mute_disabled"] else "🔊"
+        await self._send_or_reply(target, f"{emoji} Auto-mute on warnings is now **{status}**.")
 
     # ─── All Warns ───────────────────────────────────────────────────────────
     @app_commands.command(name="allwarns", description="Shows all warnings in this server")
